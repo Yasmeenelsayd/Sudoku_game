@@ -1,5 +1,3 @@
-import random
-
 
 class Cell:
 
@@ -67,6 +65,7 @@ class Sudoku:
                 self.board[row].append(Cell(row, col, val, editable))
 
     def check_move(self, cell, num):
+
         for col in range(9):
             if self.board[cell.row][col].value == num and col != cell.col:
                 return False
@@ -83,7 +82,7 @@ class Sudoku:
                     and col != cell.col
                 ):
                     return False
-                
+
         return True
 
     def get_possible_moves(self, cell):

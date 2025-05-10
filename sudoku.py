@@ -1,17 +1,18 @@
 import pygame
 import sys
 import time
-from solver import Cell, Sudoku
-
+import copy
+import random
+from solver import Sudoku
 
 pygame.init()
 
-cell_size = 50
+cell_size = 75
 minor_grid_size = 1
 major_grid_size = 3
 buffer = 5
 button_height = 50
-button_width = 125
+button_width = 135
 button_border = 2
 width = cell_size*9 + minor_grid_size*6 + major_grid_size*4 + buffer*2
 height = cell_size*9 + minor_grid_size*6 + \
@@ -23,8 +24,8 @@ brown = 142, 119,84
 gray = 200, 200, 200
 green = 0, 175, 0
 red = 200, 0, 0
-inactive_btn = brown    
-active_btn = 165, 42, 42    
+inactive_btn = brown    #142, 119, 84
+active_btn = 165, 42, 42    #0, 0, 0 
 
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Sudoku')
@@ -89,7 +90,8 @@ def draw_grid():
 
 
 def fill_cells(cells, board):
-    font = pygame.font.Font(None, 28)
+
+    font = pygame.font.Font(None, 38)
 
     for row in range(9):
         for col in range(9):
@@ -108,13 +110,14 @@ def fill_cells(cells, board):
                 else:
                     text = font.render(
                         f'{board.board[row][col].value}', 1, red)
-                    
+
             xpos, ypos = cells[row][col].center
             textbox = text.get_rect(center=(xpos, ypos))
             screen.blit(text, textbox)
 
 
 def draw_button(left, top, width, height, border, color, border_color, text):
+
     pygame.draw.rect(
         screen,
         border_color,
@@ -139,6 +142,7 @@ def draw_button(left, top, width, height, border, color, border_color, text):
 
 
 def draw_board(active_cell, cells, game):
+
     draw_grid()
     if active_cell is not None:
         pygame.draw.rect(screen, gray, active_cell)
@@ -175,6 +179,7 @@ def visual_solve(game, cells):
         pygame.draw.rect(screen, green, cell_rect, 5)
         draw_board(None, cells, game)
         pygame.display.update([cell_rect])
+
         if visual_solve(game, cells):
             return True
 
@@ -203,7 +208,7 @@ def check_sudoku(sudoku):
 
             if value in row_sets[row] or value in col_sets[col] or value in box_sets[box]:
                 return False
-
+            
             row_sets[row].add(value)
             col_sets[col].add(value)
             box_sets[box].add(value)
@@ -213,26 +218,63 @@ def check_sudoku(sudoku):
 
 def play():
 
-    easy = [
-        [6, 2, 9, 0, 7, 8, 3, 0, 0],
-        [0, 0, 0, 0, 4, 3, 7, 0, 0],
-        [0, 0, 0, 0, 5, 0, 0, 0, 1],
-        [5, 0, 0, 0, 0, 0, 0, 7, 9],
-        [0, 3, 0, 8, 9, 0, 0, 6, 0],
-        [0, 1, 0, 4, 0, 7, 5, 3, 0],
-        [8, 6, 0, 7, 2, 0, 0, 1, 0],
-        [0, 9, 0, 3, 8, 6, 0, 5, 0],
-        [2, 4, 3, 0, 0, 9, 6, 0, 0]
-    ]
-    game = Sudoku(easy)
+    def is_valid(board, row, col, num):
+        for i in range(9):
+            if board[row][i] == num or board[i][col] == num:
+                return False
+        box_x = col // 3 * 3
+        box_y = row // 3 * 3
+        for i in range(3):
+            for j in range(3):
+                if board[box_y + i][box_x + j] == num:
+                    return False
+        return True
+    
+    def solve_board(board):
+        for row in range(9):
+            for col in range(9):
+                if board[row][col] == 0:
+                    nums = list(range(1, 10))
+                    random.shuffle(nums)
+                    for num in nums:
+                        if is_valid(board, row, col, num):
+                            board[row][col] = num
+                            if solve_board(board):
+                                return True
+                            board[row][col] = 0
+                    return False
+        return True    
+
+    def remove_by_percentage(board, percent):
+        total_cells = 81
+        to_remove = int((percent / 100.0) * total_cells)
+        removed = 0
+        while removed < to_remove:
+            row = random.randint(0, 8)
+            col = random.randint(0, 8)
+            if board[row][col] != 0:
+                board[row][col] = 0
+                removed += 1
+        return board
+    
+    def generate_board(level='easy'):
+        percent_map = {
+            'easy': 40,
+            'medium': 60,
+            'hard': 70
+        }
+        percent = percent_map.get(level, 40)
+        board = [[0 for _ in range(9)] for _ in range(9)]
+        solve_board(board)
+        puzzle = copy.deepcopy(board)
+        puzzle = remove_by_percentage(puzzle, percent)
+        return puzzle
+
+
+    puzzle = generate_board('medium')
+    game = Sudoku(puzzle)
     cells = create_cells()
     active_cell = None
-    solve_rect = pygame.Rect(
-        buffer,
-        height-button_height - button_border*2 - buffer,
-        button_width + button_border*2,
-        button_height + button_border*2
-    )
 
     while True:
         for event in pygame.event.get():
@@ -241,6 +283,18 @@ def play():
 
             if event.type == pygame.MOUSEBUTTONUP:
                 mouse_pos = pygame.mouse.get_pos()
+
+                if l_easy.collidepoint(mouse_pos):
+                    puzzle = generate_board('easy')
+                    game = Sudoku(puzzle)
+
+                if l_medium.collidepoint(mouse_pos):
+                    puzzle = generate_board('medium')
+                    game = Sudoku(puzzle)
+
+                if l_hard.collidepoint(mouse_pos):
+                    puzzle = generate_board('hard')
+                    game = Sudoku(puzzle)
 
                 if reset_btn.collidepoint(mouse_pos):
                     game.reset()
@@ -259,15 +313,45 @@ def play():
                         white,
                         'Reset'
                     )
+                    l_easy = draw_button(
+                        width - buffer*3 - button_border*2 - button_width - 130 ,
+                        height - button_height - button_border*2 - buffer,
+                        button_width,
+                        button_height,
+                        button_border,
+                        inactive_btn,
+                        white,
+                        'Easy'
+                    )
+                    l_medium = draw_button(
+                        width - buffer*3 - button_border*2 - button_width - 265 ,
+                        height - button_height - button_border*2 - buffer,
+                        button_width,
+                        button_height,
+                        button_border,
+                        inactive_btn,
+                        white,
+                        'Medium'
+                    )
+                    l_hard = draw_button(
+                        width - buffer*3 - button_border*2 - button_width - 400 ,
+                        height - button_height - button_border*2 - buffer,
+                        button_width,
+                        button_height,
+                        button_border,
+                        inactive_btn,
+                        white,
+                        'Hard'
+                    )
                     solve_btn = draw_button(
-                        width - buffer*2 - button_border*4 - button_width*2 - 200,
+                        width - buffer*3 - button_border*2 - button_width - 540,
                         height - button_height - button_border*2 - buffer,
                         button_width,
                         button_height,
                         button_border,
                         inactive_btn,
                         black,
-                        'Visual Solve'
+                        'Solve'
                     )
                     pygame.display.flip()
                     visual_solve(game, cells)
@@ -322,14 +406,45 @@ def play():
             'Reset'
         )
         solve_btn = draw_button(
-            width - buffer*2 - button_border*4 - button_width*2 -200,
+            width - buffer*3 - button_border*2 - button_width - 540,
             height - button_height - button_border*2 - buffer,
             button_width,
             button_height,
             button_border,
             inactive_btn,
             white,
-            'Visual Solve'
+            'Solve'
+        )
+        
+        l_easy = draw_button(
+            width - buffer*3 - button_border*2 - button_width - 130 ,
+            height - button_height - button_border*2 - buffer,
+            button_width,
+            button_height,
+            button_border,
+            inactive_btn,
+            white,
+            'Easy'
+        )
+        l_medium = draw_button(
+            width - buffer*3 - button_border*2 - button_width - 265,
+            height - button_height - button_border*2 - buffer,
+            button_width,
+            button_height,
+            button_border,
+            inactive_btn,
+            white,
+            'Medium'
+        )
+        l_hard = draw_button(
+            width - buffer*3 - button_border*2 - button_width - 400,
+            height - button_height - button_border*2 - buffer,
+            button_width,
+            button_height,
+            button_border,
+            inactive_btn,
+            white,
+            'Hard'
         )
 
         if reset_btn.collidepoint(pygame.mouse.get_pos()):
@@ -345,21 +460,56 @@ def play():
             )
         if solve_btn.collidepoint(pygame.mouse.get_pos()):
             solve_btn = draw_button(
-                width - buffer*2 - button_border*4 - button_width*2 - 200,
+                width - buffer*3 - button_border*2 - button_width - 540,
                 height - button_height - button_border*2 - buffer,
                 button_width,
                 button_height,
                 button_border,
                 active_btn,
                 black,
-                'Visual Solve'
+                'Solve'
             )
         
-        mid_x = (reset_btn.centerx + solve_btn.centerx) // 2
-        mid_y = reset_btn.centery
+        if l_easy.collidepoint(pygame.mouse.get_pos()):
+            l_easy = draw_button(
+                width - buffer*3 - button_border*2 - button_width - 130,
+                height - button_height - button_border*2 - buffer,
+                button_width,
+                button_height,
+                button_border,
+                active_btn,
+                black,
+                'Easy'
+            )
+        if l_medium.collidepoint(pygame.mouse.get_pos()):
+            l_medium = draw_button(
+                width - buffer*3 - button_border*2 - button_width - 265,
+                height - button_height - button_border*2 - buffer,
+                button_width,
+                button_height,
+                button_border,
+                active_btn,
+                black,
+                'Medium'
+            )
+        if l_hard.collidepoint(pygame.mouse.get_pos()):
+            l_hard = draw_button(
+                width - buffer*3 - button_border*2 - button_width - 400,
+                height - button_height - button_border*2 - buffer,
+                button_width,
+                button_height,
+                button_border,
+                active_btn,
+                black,
+                'Hard'
+            )
+
+
+        mid_x = width // 2 
+        mid_y = (cell_size * 9) // 2 + buffer
         if not game.get_empty_cell():
             if check_sudoku(game):
-                font = pygame.font.Font(None, 36)
+                font = pygame.font.Font(None, 50)
                 text = font.render('Solved!', 1, green)
                 textbox = text.get_rect(center=(mid_x,mid_y))
                 screen.blit(text, textbox)
