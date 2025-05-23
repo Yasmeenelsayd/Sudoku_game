@@ -1,8 +1,10 @@
+from collections import deque
+import copy
 
 class Cell:
 
     def __init__(self, row, col, value, editable):
-   
+
         self.row = row
         self.col = col
         self.value = value
@@ -104,6 +106,7 @@ class Sudoku:
         return possible_moves
 
     def get_empty_cell(self):
+
         for row in range(9):
             for col in range(9):
                 if self.board[row][col].value is None:
@@ -112,6 +115,7 @@ class Sudoku:
         return False
 
     def solve(self):
+
         cell = self.get_empty_cell()
 
         if not cell:
@@ -149,4 +153,63 @@ class Sudoku:
             for cell in row:
                 if cell.editable:
                     cell.value = None
+
+    
+
+
+def solve_bfs(game):
+    queue = deque()
+    queue.append(copy.deepcopy(game.board))
+
+    while queue:
+        current_board = queue.popleft()
+
+        for i in range(9):
+            for j in range(9):
+                game.board[i][j].value = current_board[i][j].value
+
+        cell = game.get_empty_cell()
+        if not cell:
+            return True 
+
+        for val in range(1, 10):
+            if game.check_move(cell, val):
+                new_board = copy.deepcopy(current_board)
+                new_board[cell.row][cell.col].value = val
+                queue.append(new_board)
+
+    return False 
+
+
+def greedy_solve(sudoku,cells):
+    '''Attempts to solve the Sudoku using a greedy strategy (MRV heuristic).'''
+
+    def find_most_constrained_cell():
+        best_cell = None
+        min_options = 10 
+
+        for row in range(9):
+            for col in range(9):
+                cell = sudoku.board[row][col]
+                if cell.value is None:
+                    options = sudoku.get_possible_moves(cell)
+                    if len(options) < min_options:
+                        min_options = len(options)
+                        best_cell = cell
+                        if min_options == 1:
+                            return best_cell  
+        return best_cell
+
+    while True:
+                
+        cell = find_most_constrained_cell()
+        if not cell:
+            return True 
+
+        options = sudoku.get_possible_moves(cell)
+        if not options:
+            return False  
+
+        cell.value = options[0]       
+
 
